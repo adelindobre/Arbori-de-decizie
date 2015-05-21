@@ -1,0 +1,34 @@
+Constructia arborilor de decizie - tema 1
+
+Detalii de implementare
+	
+	Ideea este ca mi-am construit niste functii ajutatoare pentru fiecare cerinta!
+
+	Pentru calcularea entropiei: 
+	
+		- "CautaClasa" - cauza in perechile unui exemplu, aceea pereche care contine clasa exemplului
+		- "listClassType" - creeaza o lista cu perechile ce indica tipul clasei pentru toate exemplele
+		- "aparitii" - intoarce un vector in care e contorizata fiecare aparitie a valorii undei clase
+	
+	Pentru Castig Informational:
+		
+		- "cautaAtributValue" - cauta perechea (atribut, valoare) intr-un exemplu dat ca parametru
+		- "nrExempleAtr" - intoarce o lista cu exemplele care au pentru un atribut dat, o anumita valoare	 
+	
+	Pentru crearea Arborelui:
+		
+		- "get-list-index" - intoarce indexul unui element
+		- "sameClass" - testeaza daca toate exemplele sunt in aceeasi clasa
+		- In functia "create-tree" testez daca exemplele sunt in aceeasi clasa. In caz afirmativ,intor un nod
+		  frunza cu clasa respectiva. In caz contrar, apelez functia "divideEx" cu parametrii exemplele, lista de atribute
+		  fara atributul care are castigul informational cel mai mare (apelul de functii "operations" -> "compute-gain"),
+		  valoare atributului si lista cu valorile clasei. La primuul apel al functiei "divideEx" este creat practic nodul
+		  radacina. In lista de copii a nodului creat in "divideEx" este apelata functia "divideEx2" care , la randul ei,
+	          apeleaza din nou functia "create tree" pentru fiecare valoare a atributului testat in nodul parinte.
+ 
+Impresie personala despre tema: 
+	
+	A fost o tema foarte interesanta, foarte bine explicata si fara loc de ambiguitati!
+	Felicitari!	
+
+Dobre Grigore Adelin 323CC

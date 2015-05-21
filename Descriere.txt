@@ -1,0 +1,177 @@
+= Racket: Construc?ia arborilor de decizie =
+
+* Responsabil: [[cs@andreiolaru.ro|Andrei Olaru]]
+* Deadline: **03.04.2015** (depunctare: 0.5p/zi ->| 28.04.2015)
+* Data publicãrii: 11.03.2015
+* Data ultimei modificãri: 30.03.2015 (17:00)
+* Data tester-ului: 30.03.2015 | [[https://elf.cs.pub.ro/vmchecker/ui/#PP|vmchecker]]
+* [[http://cs.curs.pub.ro/2014/mod/forum/view.php?id=4834|Forum tema 1]]
+* [[#changelog|Changelog]] 
+
+== Descriere ==
+
+Scopul temei este implementarea func?ionalitã?ii algoritmului **[[http://en.wikipedia.org/wiki/ID3_algorithm|ID3]]** de creare a unui arbore de decizie.
+
+**Reprezentarea internã** a arborelui de decizie va fi la alegere (nu este impusã) ?i arborele va fi 'citit' prin intermediul unui set de func?ii de acces.
+
+Astfel, fazele de realizare a temei vor fi
+* decizia asupra reprezentãrii interne a arborelui de decizie;
+* implementarea setului de func?ii de acces pentru reprezentarea aleasã. De ajutor în alegerea reprezentãrii pot fi testele acestor func?ii;
+* implementarea func?iilor de calcul pentru entropia informa?ionalã ?i pentru câ?tigul informa?ional (în raport cu un atribut) a/al unei mul?imi de exemple;
+* construc?ia unui arbore de decizie;
+* BONUS: gestionarea unor cazuri speciale -- atribute insuficiente pentru a separa exemplele, exemple listã pentru anumite combina?ii de valori ale atributelor.
+
+
+=== Arbori de decizie ===
+
+[[http://en.wikipedia.org/wiki/Decision_tree_learning|Arborii de decizie]] sunt o metodã de [[http://en.wikipedia.org/wiki/Statistical_classification|clasificare]] care aplicã [[http://en.wikipedia.org/wiki/Supervised_learning|învã?area supervizatã]].
+
+Învã?area ?i testarea se fac prin **exemple**, fiecare dintre exemple fiind caracterizat prin **valorile** pentru diverse **atribute**. De exemplu, fiecare dintre obiectele dintr-o mul?ime pot fi caracterizate prin dimensiunea ?i forma lor, e.g. forma unui obiect poate fi 'rotund', 'pãtrat' sau 'neregulat'. Fiecare exemplu are de asemenea o **clasã**.
+
+Ini?ial, se dau un numãr de exemple //de învã?are//, pentru care clasa de care apar?in este datã. Pe baza acestora se construie?te un arbore de decizie.
+
+Un arbore de decizie este un arbore în care nodurile reprezintã atribute care separã exemplele (nodurile reprezintã //decizii//), ramurile care pleacã dintr-un nod corespund valorilor atributului din nod, iar frunzele reprezintã clase. Atunci când se dã un exemplu nou (//de test//), pentru care trebuie sã determinãm clasa, este suficient sã se parcurgã arborele, pornind de la rãdãcinã, ?i la fiecare nod întâlnit sã se meargã pe ramura corespunzãtoare valorii care caracterizeazã exemplul. Când se ajunge la o frunzã, clasa din frunzã este clasa în care se încadreazã exemplul.
+
+De exemplu, o aplica?ie simplã pentru decizia acordãrii unui credit poate folosi urmãtorul arbore de decizie:
+{{  http://www.cse.unsw.edu.au/~billw/cs9414/notes/ml/06prop/id3/dtree.gif  }}
+
+(de la http://www.cse.unsw.edu.au/~billw/cs9414/notes/ml/06prop/id3/dtree.gif)
+
+Astfel, un nou aplicant, cu un venit de $50K anual, angajat de 6 ani pe postul curent, va corespunde cu ramura din mijloc a rãdãcinii, ?i ramura din stânga a nodului "Years in present job". Aceastã cale ajunge la o frunzã care clasificã aplicantul ca un bun candidat pentru primirea unui credit.
+
+==== Construc?ie ====
+
+Construc?ia unui arbore de decizie se face în etape, la fiecare etapã alegând un atribut care separã exemplele ?i reiterând pentru fiecare din sub-mul?imile de exemple care rezultã din separare.
+
+Sã presupunem cã avem mul?imea de exemple formatã din 3 obiecte: o sferã ro?ie, un cub albastru, ?i un cub ro?u. Facem teste pentru a vedea care obiecte atrag aten?ia mai u?or, pentru ca apoi sã putem prezice aceastã capabilitate pentru alte obiecte (spoiler: cele ro?ii). Vom avea astfel douã atribute: "formã" ?i "culoare", ?i clasa "atractiv". Exemplele de învã?are vor fi:
+<code>
+sferã ro?u da
+cub albastru nu
+cub ro?u da
+</code>
+
+Ignoran?i în fa?a eviden?ei, vom porni arborele de decizie cu atributul formã, rezultând o parti?ionare în {sferã ro?ie da} ?i {cub albastru nu, cub ro?u da}. Pentru sfere avem un singur exemplu, care are clasa "da", deci vom avea o frunzã corespunzãtoare. Pentru cuburi, vom separa ?i dupã culoare pentru a putea separa clasa. Avem un arbore de înãl?ime 3 (în numãr de niveluri).
+
+Dar am fi putut avea un arbore de înãl?ime 2 dacã am fi ales culoarea ca prim atribut.
+
+Pentru a alege optim atributele putem folosi [[http://en.wikipedia.org/wiki/ID3_algorithm#The_ID3_metrics|câ?tigul informa?ional]], care se calculeazã folosind entropia informa?ionalã. În cazul nostru:
+
+Entropia setului ini?ial de exemple S este:
+
+<code>H(S) = - (p("da")*log2(p("da")) + p("nu")*log2(p("nu"))) = -(-0.38 + -0.52) = 0.91</code>
+
+Câ?tigul pentru "formã" este calculat în func?ie de dimensiunea ?i entropia sub-mul?imilor de exemple corespunzãtoare valorilor atributului S-sferã (1 element) ?i S-cub (2 elemente, clase diferite):
+
+<code>
+IG(S, "formã") = H(S)- p("sferã")*H(S-sferã) - p("cub")*H(S-cub)
+ = 0.91 - 1/3*0 - 2/3*1 = 0.25 (aprox)
+</code>
+
+''H(S-sferã)'' este 0 pentru cã toate exemplele au aceea?i clasã -> ''p("sferã"/"da")'' este 1 (deci logaritmul sãu este 0) ?i ''p("sferã")/"nu"'' este 0 (deci nu mai calculãm logaritmul ?i produsul este 0).
+
+''H(S-cub)'' este 1 din ''-(1/2*log2(1/2) + 1/2*log2(1/2)) = -log2(1/2) = 1''.
+
+Câ?tigul pentru "culoare" este calculat în func?ie de dimensiunea ?i entropia mul?imilor S-ro?u (2 elemente, aceea?i clasã) ?i S-albastru (1 element):
+
+<code>
+IG(S, "culoare") = 0.91 - 2/3*0 - 1/3*0 = 0.91.
+</code>
+
+Deci atributul culoare are un câ?tig mai mare ?i va fi ales pentru prima separare.
+
+
+==== Bonus ====
+
+Existã situa?ii în care la separarea setului de exemple dupã un atribut, pentru anumite valori nu existã exemple (mul?imea din nodul corespunzãtor valorii este vidã). În acest caz, nodul va deveni o frunzã "specialã" cu tipul 'default' ?i având drept clasã clasa majoritarã a exemplelor din nodul pãrinte.
+
+Existã de asemenea situa?ia în care într-un nod avem o mul?ime de exemple care nu au toate aceea?i clasã, dar nu mai existã atribute dupã care sã împãr?im exemplele. În acest caz, nodul devine frunzã specialã, cu tipul 'majority', ?i clasa majoritarã a exemplelor din nodul curent.
+
+Bonusul constã din implementarea func?ionalitã?ii corespunzãtoare acestor cazuri speciale.
+
+== Cerin?e ==
+
+Nu uita?i sã inspecta?i fi?ierul ''decision-tree-test.rkt'' pentru informa?ii despre formatelor datelor primite ?i pentru func?ii poten?ial utile. Testele folosite pot fi inspectate apelând func?ia ''get-test'' având ca argument una dintre valorile '''food-small'', '''food-big'', '''objects'', '''weather'' sau '''bonus'' (pentru bonus). Valoarea întoarsã de ''get-test'' con?ine informa?iile despre exemple de învã?are, atribut clasã, set de atribute ?i exemple de test (fiecare este o listã din care primul element -- numele listei -- va fi eliminat).
+=== Reprezentarea arborelui ===
+
+Reprezentarea internã a structurii arborelui de decizie este la alegere. Trebuie totu?i sã fie posibilã recunoa?terea câtorva structuri (folosind func?iile de mai jos):
+  * un nod este un nod intern al arborelui, în care se face separa?ia dupã un anumit atribut ?i care are un numãr de ramuri descendente egal cu numãrul de valori al atributului.
+  * o frunzã este un nod care nu are copii, ?i este caracterizatã de o clasã.
+  * o frunzã "specialã" este o frunzã care, pe lângã clasã, are ?i un tip (majority sau default).
+  * o ramurã este caracterizatã de o valoare (una dintre valorile atributului verificat în nodul pãrinte) ?i un nod copil (care poate fi nod intern sau frunzã).
+
+
+Testarea se va face folosind o listã de 6 (op?ional 7) func?ii de acces, care întorc:
+  * dacã un nod este frunzã.
+  * care este clasa unei frunze (va fi apelatã numai dupã verificare folosind func?ia de mai sus).
+  * (pentru bonus) dacã un nod este frunzã "specialã" (cu tip); o frunzã specialã este ?i frunzã.
+  * (pentru bonus) care este tipul unei frunze speciale (va fi apelatã numai dupã verificare folosind func?ia de mai sus).
+  * care este atributul verificat într-un nod (va fi apelatã numai dupã ce s-a verificat cã nodul nu este frunzã).
+  * care este nodul copil corespunzãtor unei valori a atributului verificat în nod (la fel).
+  * op?ional, se poate implementa o func?ie care confirmã dacã un argument oarecare este un nod valid în arbore (intern sau frunzã).
+
+
+=== Calculul entropiei ?i al câ?tigului informa?ional ===
+
+Se cere implementarea celor douã func?ii, conform cu formulele prezentate (disponibile atât în sursã cât ?i pe [[http://en.wikipedia.org/wiki/ID3_algorithm#The_ID3_metrics|wikipedia]].
+
+=== Construc?ia arborelui ===
+
+Se cere construc?ia arborelui de decizie 9folosind algoritmul [[http://en.wikipedia.org/wiki/ID3_algorithm|ID3]]), pe baza unei mul?imi de exemple (adnotate cu clasa lor), a unei liste de atribute (cu valori) ?i a mul?imii de valori pentru atributul clasã.
+
+Algoritmul de construc?ie este unul recursiv:
+  * dacã exemplele sunt toate în aceea?i clasã, se întoarce o frunzã cu clasa respectivã
+  * (pentru bonus) dacã mul?imea de exemple este vidã, se întoarce o frunzã de tip 'default'
+  * (pentru bonus) dacã nu mai sunt atribute de verificat, se întoarce o frunzã de tip 'majority'
+  * altfel
+    * se alege din lista de atribute atributul A cu câ?tig informa?ional maxim pe mul?imea de exemple datã
+    * se scoate atributul A din lista de atribute
+    * exemplele se împart în func?ie de valorile lor pentru atributul A
+    * pentru fiecare valoare v a atributului A, se apeleazã func?ia recursiv, transmi?ând ca argumente mul?imea exemplelor care au valoare v pentru atributul A, lista de atribute din care atributul A a fost eliminat, ?i informa?iile despre valorile clasei
+    * se creeazã un nou nod, având drept copii nodurile corespunzãtoare diverselor valori pentru atributul A
+
+Primele teste nu verificã alegerea atributelor în func?ie de câ?tigul lor informa?ional, deci în primã fazã arborele poate fi construit alegând atributele în orice ordine. Este doar necesar ca decizia sã se facã în mod corect.
+
+
+== Debugging ==
+
+În depanarea implementãrii vã pot fi utile urmãtoarele func?ii implementate în ''decision-tree-test.rkt'':
+
+  * ''(get-test nume-test)'' -- întoarce toate elementele testului cu numele specificat
+  * ''(get-tree nume-test func?ie-creare)'' -- întoarce arborele creat de func?ia datã (probabil ''create-tree'') pentru testul cu numele specificat
+  * ''(perform-test listã-func?ii nume-exemplu func?ie-creare)'' -- efectueazã verificãri, folosind func?iile de acces date (probabil ''functions''), testul cu numele dat, ?i func?ia datã (probabil ''create-tree''):
+    * creeazã arborele
+    * verificã structura arborelui
+      * coeren?a structurii în raport cu func?iile date
+      * apartenen?a valorilor din frunze la mul?imea de valori a atributului clasã
+      * apartenen?a valorilor din noduri la mul?imea de atribute
+      * apartenen?a valorilor de pe ramuri la mul?imea de valori ai atributului verificat în nod
+      * aceastã testare va afi?a erori (prima eroare întâlnitã) la consolã
+    * verificã clasificarea corectã a exemplelor de test, folosind arborele dat
+      * prima verificare e?uatã va afi?a eroarea la consolã
+  * ''(get-tree-height listã-func?ii arbore test)'' -- calculeazã înãl?imea arborelui (folosind func?iile de acces date). Ultimul parametru (poate fi ob?inut cu ''get-test'') este necesar pentru ob?inerea valorilor atributelor.
+  * ''(decide-class listã-func?ii arbore exemplu-test)'' -- parcurge arborele dat (folosind func?iile de acces date) ?i întoarce clasa la care a fost clasificat exemplul de test.
+  * ''(check-tree-structure listã-func?ii arbore test)'' -- efectueazã verificãrile de mai sus asupra structurii arborelui dat, folosind func?iile de acces date, ?i testul dat (poate fi ob?inut cu ''get-test'', este necesar pentru valorile atributelor ?i pentru valorile clasei)
+
+== Precizãri ==
+  * Încãrcarea temelor, ca ?i testarea ?i notarea lor, se va face pe ''vmchecker''. Este suficient sã include?i fi?ierul ''decision-tree-create.rkt'' (plus readme) în arhivã, testele existã deja.
+  * În arhiva temei include?i un fi?ier README cu detalii despre cum a?i implementat structura arborelui.
+  * Sunt interzise efectele laterale de orice fel (''set!'', ''set-car!'' etc.).
+  * Nu implementa?i arborele ca listã simplã (liniarã, ne-imbricatã) în care gãsirea nodurilor se face prin calcul de indec?i.
+  * Este indicatã utilizarea func?ionalelor. Folosirea adecvatã a acestora sau nefolosirea acestora aduc modificãri în punctajul temei (în limita a 1 punct).
+  * Se va lucra **exclusiv** în fi?ierul ''decision-tree-create.rkt''. Elementele de implementat sunt clar indicate.
+  * Nu uita?i sã men?iona?i în sursã dacã bonusul a fost implementat, prin schimbarea valorii ''I-DID-THE-BONUS''.
+
+
+== Resurse ==
+
+* {{:teme15:racket-decizie:racket-decizie.zip|Arhiva de pornire}}
+
+== Changelog ==
+
+* 30.03 -- corec?ie test ''food-small'' (mul?umesc Radu-Paul Rãdulescu); corec?ie testare înãl?ime arbore ''food-big'' în func?ie de atributul ales ca rãdãcinã.
+* 25.03 -- vmchecker up.
+* 19.03 -- corec?ie teste food-small, food-big, ?i bonus (mul?umesc Teodor-Petre ?tefu ?i Adrian-Nicolae Tãnase)
+* 19.03 -- adãugare sec?iune [[#debugging]]
+* 17.03 -- men?iune în enun? a utilitã?ii inspectãrii fi?ierului ''decision-tree-test.rkt''.
+* 14.03 -- corec?ie (actualizare) documenta?ie aferentã listei ''string'', în ''decision-tree-test.rkt'' (mul?umesc Tiberiu Iorgulescu)
+* 11.03 -- corec?ie documentare func?ie get-child (mul?umesc Alexandru Antonicã)
